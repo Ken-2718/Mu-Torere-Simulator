@@ -1,3 +1,28 @@
-# Mu-Torere-Simulator
-Interactive Mu Tōrere simulator with game-theoretic analysis, BFS state-space exploration, and W/L/D classification for traditional Māori strategy games.互動式 Mu Tōrere 
-模擬器，結合博弈理論分析、BFS 狀態空間搜尋與 W/L/D 分類研究。
+# Mu Tōrere Simulator
+
+Interactive web-based simulator for the traditional Māori strategy game Mu Tōrere.
+
+## Features
+
+- Original 8-node game
+- Extended 9-node version
+- Experimental 10-node version
+- Legal move detection
+- Win/Lose/Draw analysis
+- BFS state-space exploration
+
+## State Space Analysis
+
+| Version | Reachable States |
+|----------|----------|
+| 8_B4_W4 | 1180 |
+| 9_B4_W22 | TBD |
+
+## Demo
+
+https://ken-2718.github.io/Mu-Torere-Simulator/
+
+## Author
+
+Cheng-Jun Hung
+Tunghai University
