@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>Mu Tōrere Simulator</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Noto Sans TC", sans-serif;
+  text-align: center;
+  background: #f7efe3;
+  color: #4b2a12;
+  overflow-x: hidden;
+}
+
+h1 {
+  margin: 10px 0 6px;
+  font-size: clamp(26px, 3vw, 40px);
+}
+
+#controls {
+  margin: 4px auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button, select {
+  padding: 7px 12px;
+  font-size: 16px;
+}
+
+#infoPanel {
+  margin: 4px 0 8px;
+}
+
+#info {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: bold;
+}
+
+#moves, #layoutInfo {
+  margin-top: 3px;
+  font-size: 15px;
+}
+
+#mainArea {
+  width: min(98vw, 1500px);
+  margin: 0 auto 16px;
+  display: grid;
+  grid-template-columns: minmax(310px, 1fr) minmax(390px, 440px) minmax(310px, 1fr);
+  gap: 16px;
+  align-items: start;
+  box-sizing: border-box;
+}
+
+.sideColumn,
+.centerColumn {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.centerColumn {
+  align-items: center;
+}
+
+.panelButtonRow {
+  height: 42px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sidePanel {
+  height: 440px;
+  background: #fffaf0;
+  border: 2px solid #8b5a2b;
+  border-radius: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 15px;
+  overflow: auto;
+}
+
+.sidePanel h3 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.invisible {
+  visibility: hidden;
+}
+
+canvas {
+  display: block;
+  width: 440px;
+  height: 440px;
+  background: #fffaf0;
+  border: 2px solid #8b5a2b;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.moveCard {
+  border-bottom: 1px solid #d8b98a;
+  padding: 8px 0;
+}
+
+.moveCard p {
+  margin: 4px 0;
+}
+
+@media (max-width: 1150px) {
+  body {
+    overflow-y: auto;
+  }
+
+  #mainArea {
+    width: min(94vw, 560px);
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .centerColumn {
+    order: 1;
+    align-items: center;
+  }
+
+  .sideColumn:first-child {
+    order: 2;
+  }
+
+  .sideColumn:last-child {
+    order: 3;
+  }
+
+  canvas {
+    width: min(92vw, 460px);
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .sidePanel {
+    width: 100%;
+    height: auto;
+    min-height: 160px;
+    max-height: 260px;
+  }
+
+  .invisible {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  h1 {
+    font-size: 26px;
+  }
+
+  #controls {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  select, button {
+    width: min(90vw, 340px);
+  }
+
+  canvas {
+    width: min(92vw, 360px);
+  }
+
+  .panelButtonRow {
+    height: auto;
+    margin: 6px 0;
+  }
+
+  .sidePanel {
+    font-size: 14px;
+    max-height: 220px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<h1>Mu Tōrere 模擬器</h1>
+
+<div id="controls">
+  外圈格數：
+  <select id="ringSize">
+    <option value="8">8 格（原始版）</option>
+    <option value="9">9 格（延伸版）</option>
+    <option value="10" disabled>10 格（已設計，暫不開放）</option>
+  </select>
+
+  初始排列：
+  <select id="layoutType"></select>
+
+  遊玩模式：
+  <select id="gameMode">
+    <option value="pvp">玩家 vs 玩家</option>
+    <option value="pvc">玩家 vs 電腦</option>
+  </select>
+
+<span id="aiDifficultyContainer">
+
+  電腦難度：
+
+  <select id="aiDifficulty">
+      <option value="easy">簡單：隨機</option>
+      <option value="medium">中等：優先白棋勝</option>
+      <option value="hard">困難：最佳策略</option>
+  </select>
+
+</span>
+
+  <button onclick="resetGame()">重新開始</button>
+</div>
+
+<div id="infoPanel">
+  <div id="info"></div>
+  <div id="moves"></div>
+  <div id="layoutInfo"></div>
+</div>
+
+<div id="mainArea">
+  <div class="sideColumn">
+    <div class="panelButtonRow">
+      <button onclick="toggleStats()">顯示 / 隱藏分析統計</button>
+    </div>
+
+    <div id="statsPanel" class="sidePanel invisible">
+      <h3>分析統計</h3>
+      <div id="statsContent">尚未載入資料</div>
+    </div>
+  </div>
+
+  <div class="centerColumn">
+    <div class="panelButtonRow"></div>
+    <canvas id="board" width="520" height="520"></canvas>
+  </div>
+
+  <div class="sideColumn">
+    <div class="panelButtonRow">
+      <button onclick="toggleMoveOutcome()">顯示 / 隱藏策略提示</button>
+    </div>
+
+    <div id="outcomePanel" class="sidePanel invisible">
+      <h3>策略提示</h3>
+      <div id="outcomeContent">尚未載入資料</div>
+    </div>
+  </div>
+</div>
+
+<script src="analysis_data.js"></script>
+
+<script>
+const EMPTY = 0;
+const BLACK = 1;
+const WHITE = -1;
+
+let ringN = 8;
+let centerIndex = ringN;
+let board = [];
+let turn = BLACK;
+let selected = null;
+let positions = [];
+let computerThinking = false;
+
+const canvas = document.getElementById("board");
+const ctx = canvas.getContext("2d");
+
+const layoutOptions = {
+  8: [
+    { value: "8_B4_W4", label: "黑4 / 白4（固定原始版）", disabled: false }
+  ],
+
+  9: [
+    { value: "9_B4_W4",  label: "9格：黑4 / 白4",  disabled: false },
+    { value: "9_B4_W22", label: "9格：黑4 / 白22", disabled: false },
+    { value: "9_B22_W4", label: "9格：黑22 / 白4", disabled: false },
+    { value: "9_B13_W4", label: "9格：黑13 / 白4", disabled: false },
+    { value: "9_B4_W13", label: "9格：黑4 / 白13", disabled: false }
+  ],
+
+  10: [
+    { value: "10_B22_W22", label: "10格：黑22 / 白22（暫不開放）", disabled: true },
+    { value: "10_B121_W4", label: "10格：黑121 / 白4（暫不開放）", disabled: true },
+    { value: "10_B4_W121", label: "10格：黑4 / 白121（暫不開放）", disabled: true },
+    { value: "10_B13_W4", label: "10格：黑13 / 白4（暫不開放）", disabled: true },
+    { value: "10_B4_W13", label: "10格：黑4 / 白13（暫不開放）", disabled: true },
+    { value: "10_B13_W13", label: "10格：黑13 / 白13（暫不開放）", disabled: true }
+  ]
+};
+
+function opponent(p) {
+  return -p;
+}
+
+function ringNeighbors(i) {
+  return [
+    (i - 1 + ringN) % ringN,
+    (i + 1) % ringN
+  ];
+}
+
+function setCells(indices, piece) {
+  for (const i of indices) {
+    board[i] = piece;
+  }
+}
+
+function makeInitialBoard(n, layoutType) {
+  ringN = n;
+  centerIndex = ringN;
+  board = Array(ringN + 1).fill(EMPTY);
+
+  if (layoutType === "8_B4_W4") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 5, 6, 7], WHITE);
+  }
+
+  if (layoutType === "9_B4_W4") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 5, 6, 7], WHITE);
+  }
+
+  if (layoutType === "9_B4_W22") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 5, 7, 8], WHITE);
+  }
+
+  if (layoutType === "9_B22_W4") {
+    setCells([0, 1, 3, 4], BLACK);
+    setCells([5, 6, 7, 8], WHITE);
+  }
+
+  if (layoutType === "9_B13_W4") {
+    setCells([0, 2, 3, 4], BLACK);
+    setCells([5, 6, 7, 8], WHITE);
+  }
+
+  if (layoutType === "9_B4_W13") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 6, 7, 8], WHITE);
+  }
+
+  if (layoutType === "10_B22_W22") {
+    setCells([0, 1, 3, 4], BLACK);
+    setCells([5, 6, 8, 9], WHITE);
+  }
+
+  if (layoutType === "10_B121_W4") {
+    setCells([0, 2, 3, 5], BLACK);
+    setCells([6, 7, 8, 9], WHITE);
+  }
+
+  if (layoutType === "10_B4_W121") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 6, 7, 9], WHITE);
+  }
+
+  if (layoutType === "10_B13_W4") {
+    setCells([0, 2, 3, 4], BLACK);
+    setCells([5, 6, 7, 8], WHITE);
+  }
+
+  if (layoutType === "10_B4_W13") {
+    setCells([0, 1, 2, 3], BLACK);
+    setCells([4, 6, 7, 8], WHITE);
+  }
+
+  if (layoutType === "10_B13_W13") {
+    setCells([0, 2, 3, 4], BLACK);
+    setCells([5, 7, 8, 9], WHITE);
+  }
+
+  board[centerIndex] = EMPTY;
+}
+
+function legalMoves(player) {
+  let moves = [];
+
+  for (let src = 0; src < ringN; src++) {
+    if (board[src] !== player) continue;
+
+    let [left, right] = ringNeighbors(src);
+
+    if (board[left] === EMPTY) moves.push([src, left]);
+    if (board[right] === EMPTY) moves.push([src, right]);
+
+    if (board[centerIndex] === EMPTY) {
+      if (board[left] === opponent(player) || board[right] === opponent(player)) {
+        moves.push([src, centerIndex]);
+      }
+    }
+  }
+
+  if (board[centerIndex] === player) {
+    for (let dst = 0; dst < ringN; dst++) {
+      if (board[dst] === EMPTY) {
+        moves.push([centerIndex, dst]);
+      }
+    }
+  }
+
+  return moves;
+}
+
+function isLegalMove(src, dst) {
+  return legalMoves(turn).some(m => m[0] === src && m[1] === dst);
+}
+
+function applyMove(src, dst) {
+  if (!isLegalMove(src, dst)) return false;
+
+  board[dst] = board[src];
+  board[src] = EMPTY;
+  turn = opponent(turn);
+  selected = null;
+  return true;
+}
+
+function isTerminal() {
+  return legalMoves(turn).length === 0;
+}
+
+function winner() {
+  if (!isTerminal()) return null;
+  return opponent(turn);
+}
+
+function currentLayoutKey() {
+  return document.getElementById("layoutType").value;
+}
+
+function stateKeyFromBoard(b = board, p = turn) {
+  return b.join(",") + "|" + p;
+}
+
+function formatLabel(label) {
+  if (label === "W") return "W：目前玩家可強制勝";
+  if (label === "L") return "L：目前玩家必敗";
+  if (label === "D") return "D：和局 / 循環";
+  return "未知";
+}
+
+function formatOutcome(outcome) {
+  if (outcome === "PlayerWin") return "玩家黑棋可強制勝";
+  if (outcome === "ComputerWin") return "白棋可強制勝";
+  if (outcome === "Draw") return "和局 / 循環";
+  return "未知";
+}
+
+function formatDist(dist, outcome) {
+  if (dist === null || dist === undefined) return "無固定步數";
+
+  if (outcome === "PlayerWin") {
+    return `約 ${dist} 步內可強制走向玩家勝`;
+  }
+
+  if (outcome === "ComputerWin") {
+    return `約 ${dist} 步內可能走向白棋勝`;
+  }
+
+  return `dist = ${dist}`;
+}
+
+function toggleStats() {
+  document.getElementById("statsPanel").classList.toggle("invisible");
+}
+
+function toggleMoveOutcome() {
+  document.getElementById("outcomePanel").classList.toggle("invisible");
+}
+
+function updateStatsPanel() {
+  const key = currentLayoutKey();
+  const data = ANALYSIS_DATA?.[key];
+  const box = document.getElementById("statsContent");
+
+  if (!data) {
+    box.innerHTML = `
+      <p>此版本尚未載入分析資料。</p>
+      <p>請確認 analysis_data.js 是否與 index.html 放在同一層。</p>
+    `;
+    return;
+  }
+
+  const black = data.blackToMove;
+  const white = data.whiteToMove;
+  const branch = data.branchDistribution;
+
+  let branchHtml = "";
+  for (const k of Object.keys(branch)) {
+    branchHtml += `<li>${k} 步：${branch[k]} 個狀態</li>`;
+  }
+
+  box.innerHTML = `
+    <p><b>目前版本：</b>${key}</p>
+    <p><b>可達狀態：</b>${data.reachable}</p>
+    <p><b>終局狀態：</b>${data.terminal}</p>
+    <p><b>平均分支數：</b>${data.avgBranching}</p>
+
+    <hr>
+
+    <p><b>完整 W/L/D：</b></p>
+    <p>W：${data.W}　L：${data.L}　D：${data.D}</p>
+
+    <hr>
+
+    <p><b>黑棋回合：</b></p>
+    <p>W：${black.W}　L：${black.L}　D：${black.D}</p>
+
+    <p><b>白棋回合：</b></p>
+    <p>W：${white.W}　L：${white.L}　D：${white.D}</p>
+
+    <hr>
+
+    <p><b>玩家黑棋視角：</b></p>
+    <p>玩家可勝：${data.playerWinStates}</p>
+    <p>白棋可勝：${data.computerWinStates}</p>
+    <p>和局 / 循環：${data.drawStates}</p>
+
+    <hr>
+
+    <p><b>初始局面：</b></p>
+    <p>W/L/D：${formatLabel(data.initialLabel)}</p>
+    <p>玩家視角：${formatOutcome(data.initialOutcome)}</p>
+
+    <hr>
+
+    <p><b>合法步數分布：</b></p>
+    <ul>${branchHtml}</ul>
+  `;
+}
+
+function updateOutcomePanel() {
+  const box = document.getElementById("outcomeContent");
+  const layoutKey = currentLayoutKey();
+  const currentKey = stateKeyFromBoard(board, turn);
+
+  const results = MOVE_RESULTS?.[layoutKey]?.[currentKey];
+
+  if (!results || results.length === 0) {
+    box.innerHTML = `<p>目前沒有合法步，或尚未載入分析資料。</p>`;
+    return;
+  }
+
+  let html = "";
+
+  for (const item of results) {
+    const [src, dst] = item.move;
+
+    let icon = "";
+    let hintText = "";
+
+    if (item.outcome === "PlayerWin") {
+      icon = "✅";
+      hintText = "推薦：走向玩家勝";
+    } else if (item.outcome === "ComputerWin") {
+      icon = "⚠️";
+      hintText = "危險：可能讓白棋勝";
+    } else {
+      icon = "➖";
+      hintText = "可守和：進入循環";
+    }
+
+    html += `
+      <div class="moveCard">
+        <p><b>${icon} ${src} → ${dst}</b></p>
+        <p><b>提示：</b>${hintText}</p>
+        <p><b>W/L/D：</b>${formatLabel(item.label)}</p>
+        <p><b>玩家視角：</b>${formatOutcome(item.outcome)}</p>
+        <p><b>距離：</b>${formatDist(item.dist, item.outcome)}</p>
+      </div>
+    `;
+  }
+
+  box.innerHTML = html;
+}
+
+function chooseAIMove() {
+  const difficulty = document.getElementById("aiDifficulty").value;
+  const layoutKey = currentLayoutKey();
+  const currentKey = stateKeyFromBoard(board, turn);
+
+  const results = MOVE_RESULTS?.[layoutKey]?.[currentKey];
+
+  if (!results || results.length === 0) {
+    const moves = legalMoves(turn);
+    return moves.length ? moves[Math.floor(Math.random() * moves.length)] : null;
+  }
+
+  if (difficulty === "easy") {
+    const item = results[Math.floor(Math.random() * results.length)];
+    return item.move;
+  }
+
+  if (difficulty === "medium") {
+    const winMoves = results.filter(item => item.outcome === "ComputerWin");
+    if (winMoves.length > 0) return winMoves[0].move;
+
+    const drawMoves = results.filter(item => item.outcome === "Draw");
+    if (drawMoves.length > 0) return drawMoves[0].move;
+
+    return results[0].move;
+  }
+
+  if (difficulty === "hard") {
+    const winMoves = results.filter(item => item.outcome === "ComputerWin");
+
+    if (winMoves.length > 0) {
+      winMoves.sort((a, b) => {
+        const da = a.dist === null ? 999999 : a.dist;
+        const db = b.dist === null ? 999999 : b.dist;
+        return da - db;
+      });
+      return winMoves[0].move;
+    }
+
+    const drawMoves = results.filter(item => item.outcome === "Draw");
+    if (drawMoves.length > 0) return drawMoves[0].move;
+
+    const loseMoves = results.filter(item => item.outcome === "PlayerWin");
+
+    loseMoves.sort((a, b) => {
+      const da = a.dist === null ? -1 : a.dist;
+      const db = b.dist === null ? -1 : b.dist;
+      return db - da;
+    });
+
+    return loseMoves[0].move;
+  }
+
+  return results[0].move;
+}
+
+function maybeComputerMove() {
+  const mode = document.getElementById("gameMode").value;
+
+  if (mode !== "pvc") return;
+  if (turn !== WHITE) return;
+  if (isTerminal()) return;
+
+  computerThinking = true;
+  updateInfo();
+
+  setTimeout(() => {
+    const move = chooseAIMove();
+
+    if (move) {
+      applyMove(move[0], move[1]);
+    }
+
+    computerThinking = false;
+    drawBoard();
+    updateInfo();
+  }, 500);
+}
+
+function computePositions() {
+  positions = [];
+  const cx = 260;
+  const cy = 260;
+  const r = 180;
+
+  for (let i = 0; i < ringN; i++) {
+    const angle = -Math.PI / 2 + i * 2 * Math.PI / ringN;
+    positions.push({
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle)
+    });
+  }
+
+  positions.push({ x: cx, y: cy });
+}
+
+function drawBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  computePositions();
+
+  ctx.strokeStyle = "#8b5a2b";
+  ctx.lineWidth = 3;
+
+  for (let i = 0; i < ringN; i++) {
+    let p1 = positions[i];
+    let p2 = positions[(i + 1) % ringN];
+
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+  }
+
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#b08a60";
+
+  for (let i = 0; i < ringN; i++) {
+    let p = positions[i];
+    let c = positions[centerIndex];
+
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  for (let i = 0; i <= ringN; i++) {
+    let p = positions[i];
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 24, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff7e6";
+    ctx.fill();
+
+    ctx.strokeStyle = selected === i ? "#ff9900" : "#4b2a12";
+    ctx.lineWidth = selected === i ? 5 : 2;
+    ctx.stroke();
+
+    if (board[i] === BLACK) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 17, 0, Math.PI * 2);
+      ctx.fillStyle = "#222";
+      ctx.fill();
+    } else if (board[i] === WHITE) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 17, 0, Math.PI * 2);
+      ctx.fillStyle = "#f5f5f5";
+      ctx.fill();
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#4b2a12";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(i, p.x, p.y + 45);
+  }
+}
+
+function updateInfo() {
+  const info = document.getElementById("info");
+  const movesDiv = document.getElementById("moves");
+  const layoutInfo = document.getElementById("layoutInfo");
+
+  if (isTerminal()) {
+    const w = winner();
+    info.innerHTML = `遊戲結束：${w === BLACK ? "黑棋" : "白棋"}獲勝`;
+  } else if (computerThinking) {
+    info.innerHTML = `電腦思考中...`;
+  } else {
+    info.innerHTML = `目前回合：${turn === BLACK ? "黑棋" : "白棋"}`;
+  }
+
+  const moves = legalMoves(turn)
+    .map(m => `${m[0]}→${m[1]}`)
+    .join(", ");
+
+  movesDiv.innerHTML = `合法步：${moves || "無"}`;
+
+  const layoutText = document.getElementById("layoutType").selectedOptions[0].text;
+
+  const modeSelect = document.getElementById("gameMode");
+  const mode = modeSelect.value;
+  const modeText = modeSelect.selectedOptions[0].text;
+
+  let settingText = `目前設定：外圈 ${ringN} 格，${layoutText}｜${modeText}`;
+
+  if (mode === "pvc") {
+    const difficultyText = document.getElementById("aiDifficulty").selectedOptions[0].text;
+    settingText += `｜${difficultyText}`;
+  }
+
+  layoutInfo.innerHTML = settingText;
+
+  updateStatsPanel();
+  updateOutcomePanel();
+}
+
+canvas.addEventListener("click", function(event) {
+  if (isTerminal()) return;
+  if (computerThinking) return;
+
+  const mode = document.getElementById("gameMode").value;
+  if (mode === "pvc" && turn === WHITE) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+
+  let clicked = null;
+
+  for (let i = 0; i < positions.length; i++) {
+    let p = positions[i];
+    let d = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+
+    if (d <= 30) {
+      clicked = i;
+      break;
+    }
+  }
+
+  if (clicked === null) return;
+
+  if (selected === null) {
+    if (board[clicked] === turn) {
+      selected = clicked;
+    }
+  } else {
+    if (!applyMove(selected, clicked)) {
+      if (board[clicked] === turn) {
+        selected = clicked;
+      } else {
+        selected = null;
+      }
+    }
+  }
+
+  drawBoard();
+  updateInfo();
+  maybeComputerMove();
+});
+
+function updateLayoutOptions() {
+  const n = parseInt(document.getElementById("ringSize").value);
+  const layoutSelect = document.getElementById("layoutType");
+
+  layoutSelect.innerHTML = "";
+
+  for (const opt of layoutOptions[n]) {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    option.disabled = opt.disabled;
+    layoutSelect.appendChild(option);
+  }
+
+  layoutSelect.selectedIndex = 0;
+}
+
+function updateGameModeUI() {
+  const mode = document.getElementById("gameMode").value;
+  const aiBox = document.getElementById("aiDifficultyContainer");
+
+  if (mode === "pvp") {
+    aiBox.style.display = "none";
+  } else {
+    aiBox.style.display = "inline-flex";
+    aiBox.style.alignItems = "center";
+    aiBox.style.gap = "6px";
+  }
+}
+
+function resetGame() {
+  const n = parseInt(document.getElementById("ringSize").value);
+  const layoutType = document.getElementById("layoutType").value;
+
+  makeInitialBoard(n, layoutType);
+
+  turn = BLACK;
+  selected = null;
+  computerThinking = false;
+
+  drawBoard();
+  updateInfo();
+}
+
+document.getElementById("ringSize").addEventListener("change", function() {
+  updateLayoutOptions();
+  resetGame();
+});
+
+document.getElementById("layoutType").addEventListener("change", resetGame);
+
+document.getElementById("gameMode").addEventListener("change", function() {
+  updateGameModeUI();
+  resetGame();
+});
+
+document.getElementById("aiDifficulty").addEventListener("change", updateInfo);
+
+updateLayoutOptions();
+updateGameModeUI();
+resetGame();
+
+window.addEventListener("resize", function() {
+  drawBoard();
+});
+</script>
+
+</body>
+</html>
